@@ -365,22 +365,19 @@ class Catmull(Curve):
         if len(points) == 1:
             return
 
-        # The tangent for point i is defined as 0.5 * (P_(i + 1) - P_(i - 1)),
-        # so we need to consider the point behind it and the point in front of
-        # it. We:
-        # * roll points left by one to get each point's successor. Then we
-        #   clamp the last element to itself so the last tangent can be
-        #   calculated properly.
-        # * roll points right by one to get each point's predecessor. Then we
-        #   clamp the first element to itself so the first tangent can be
-        #   calculated properly.
-        # For example, in a list of five points, we have:
-        # * points =    [p1, p2, p3, p4, p5]
-        # * p_aheads =  [p2, p3, p4, p5, p5]
-        # * p_behinds = [p1, p1, p2, p3, p4]
+        # osu! uses a 4-point Catmull-Rom form: for each segment from
+        # point[j] to point[j+1], it picks 4 control points:
+        #   v1 = point[j-1]  (clamped to point[j] when j==0)
+        #   v2 = point[j]
+        #   v3 = point[j+1]
+        #   v4 = point[j+2]  (extrapolated as v3+(v3-v2) at the end)
+        #
+        # The tangent at each point is implicitly 0.5*(v_ahead - v_behind).
+        # To match osu-stable, we clamp at the start and extrapolate at the
+        # end.
 
         p_aheads = np.roll(points, -1, axis=0)
-        p_aheads[-1] = p_aheads[-2]
+        p_aheads[-1] = 2 * points[-1] - points[-2]
 
         p_behinds = np.roll(points, 1, axis=0)
         p_behinds[0] = p_behinds[1]
