@@ -368,23 +368,22 @@ class Catmull(Curve):
         # The tangent for point i is defined as 0.5 * (P_(i + 1) - P_(i - 1)),
         # so we need to consider the point behind it and the point in front of
         # it. We:
-        # * roll points right by one. Then we replace first element with
-        #   the previous first element (which is now second) so the first
-        #   tangent can be calculated properly.
-        # * roll points left by one. Then we replace last element with the
-        #   previous last element (which is now second to last) so the last
-        #   tangent can be calculated properly.
-        # to create the p_aheads and p_behinds lists respectively.
+        # * roll points left by one to get each point's successor. Then we
+        #   clamp the last element to itself so the last tangent can be
+        #   calculated properly.
+        # * roll points right by one to get each point's predecessor. Then we
+        #   clamp the first element to itself so the first tangent can be
+        #   calculated properly.
         # For example, in a list of five points, we have:
         # * points =    [p1, p2, p3, p4, p5]
         # * p_aheads =  [p2, p3, p4, p5, p5]
         # * p_behinds = [p1, p1, p2, p3, p4]
 
-        p_aheads = np.roll(points, 1)
-        p_aheads[0] = p_aheads[1]
+        p_aheads = np.roll(points, -1, axis=0)
+        p_aheads[-1] = p_aheads[-2]
 
-        p_behinds = np.roll(points, -1)
-        p_behinds[-1] = p_behinds[-2]
+        p_behinds = np.roll(points, 1, axis=0)
+        p_behinds[0] = p_behinds[1]
 
         # we interpolate x and y separately, so track their tangents in two
         # separate lists.
@@ -421,15 +420,16 @@ class Catmull(Curve):
         if len(self.points) == 1:
             return self.points[0]
 
-        # for consistency with website notes linked above
-        s = t
-        S = np.array([s**3, s**2, s, 1])
         # catmull curves are made up of a number of individual curves. Assuming
         # osu! weights each curve equally (that is, each curve takes an equal
         # amount of time to traverse regardless of its size), we can get the
         # curve that should be used for a certain t by multiplying by the
-        # number of curves and rounding up.
-        curve_index = math.ceil(t * len(self.Cxs)) - 1
+        # number of curves and flooring.
+        n_curves = len(self.Cxs)
+        curve_index = min(int(t * n_curves), n_curves - 1)
+        # remap global t to local segment parameter s in [0, 1]
+        s = t * n_curves - curve_index
+        S = np.array([s**3, s**2, s, 1])
         Cx = self.Cxs[curve_index]
         Cy = self.Cys[curve_index]
 
