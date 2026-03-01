@@ -1,4 +1,5 @@
 import inspect
+import math
 import operator as op
 import re
 from datetime import timedelta
@@ -900,7 +901,11 @@ class Slider(HitObject):
 
         pixels_per_beat = slider_multiplier * 100 * velocity_multiplier
         num_beats = (pixel_length * repeat) / pixels_per_beat
-        duration = timedelta(milliseconds=int(num_beats * ms_per_beat))
+        with np.errstate(over="ignore"):
+            duration_ms = num_beats * ms_per_beat
+        if not math.isfinite(duration_ms):
+            duration_ms = 0
+        duration = timedelta(milliseconds=int(duration_ms))
 
         ticks = int(
             ((np.ceil((num_beats - 0.1) / repeat * slider_tick_rate) - 1)) * repeat
@@ -2362,8 +2367,12 @@ class Beatmap:
         ValueError
             Raised when the file cannot be parsed as a ``.osu`` file.
         """
-        with open(path, encoding="utf-8-sig") as file:
-            return cls.from_file(file)
+        try:
+            with open(path, encoding="utf-8-sig") as file:
+                return cls.from_file(file)
+        except UnicodeDecodeError:
+            with open(path, encoding="latin-1") as file:
+                return cls.from_file(file)
 
     @classmethod
     def from_osz_file(cls, file):
@@ -2564,8 +2573,11 @@ class Beatmap:
         # the parent starts as None because the first timing point should
         # not be inherited
         parent = None
-        for raw_timing_point in groups["TimingPoints"]:
-            timing_point = TimingPoint.parse(raw_timing_point, parent)
+        for raw_timing_point in groups.get("TimingPoints", []):
+            try:
+                timing_point = TimingPoint.parse(raw_timing_point, parent)
+            except (ValueError, TypeError):
+                continue
             if timing_point.parent is None:
                 # we have a new parent node, pass that along to the new
                 # timing points

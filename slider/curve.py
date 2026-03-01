@@ -187,6 +187,8 @@ class _MetaCurveMixin:
     def _ts(self):
         lengths = [c.length for c in self._curves]
         length = sum(lengths)
+        if length == 0:
+            return [1] * len(self._curves) if self._curves else [1]
         out = []
         for i, j in enumerate(accumulate(lengths[:-1])):
             self._curves[i].req_length = lengths[i]
@@ -199,6 +201,9 @@ class _MetaCurveMixin:
         return out
 
     def __call__(self, t):
+        if not self._curves:
+            return self.points[0]
+
         ts = self._ts
         if len(self._curves) == 1:
             # Special case where we only have one curve
