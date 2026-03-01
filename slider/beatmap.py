@@ -901,6 +901,10 @@ class Slider(HitObject):
 
         pixels_per_beat = slider_multiplier * 100 * velocity_multiplier
         num_beats = (pixel_length * repeat) / pixels_per_beat
+
+        if not math.isfinite(num_beats):
+            num_beats = 0
+
         with np.errstate(over="ignore"):
             duration_ms = num_beats * ms_per_beat
         if not math.isfinite(duration_ms):
